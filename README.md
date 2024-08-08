@@ -4,7 +4,7 @@ This is the A2 version of the RP2350 bootrom.
 
 The source is provided for reference purposes. Whilst you can build a matching binary if you use the exact right compilers, it may be simpler just to use the ELFs with debug info provided as part of the release artifacts. 
 
-It is highly recommended that you read the "Bootrom Concepts" section in the [RP2350 Datasheet](https://rptl.io/rp2040-datasheet) as a background, or indeed the whole Bootrom chapter!
+It is highly recommended that you read the "Bootrom Concepts" section in the [RP2350 Datasheet](https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf) as a background, or indeed the whole Bootrom chapter!
 
 # Building the bootrom
 
