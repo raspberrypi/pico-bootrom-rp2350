@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+
+# Scan disassembly file for rcps of register with itself
+
+import sys
+import re
+
+if len(sys.argv) != 2:
+	sys.exit("Usage: check_useless_rcps (x.dis)")
+
+dis = open(sys.argv[1], "r").read()
+found = False
+for m in re.findall("(\s+([0-9a-f]+).+(rcp_[2\w]*)\s*([\w\d]*), ([\w\d]*).*)", dis):
+	if m[3] == m[4]:
+		print("Useless RCP instruction detected at address 0x{}".format(m[1]))
+		print(m[0].strip())
+		found = True
+if found:
+	sys.exit("Found useless RCPs")
+else:
+	print("No useless RCPs found")

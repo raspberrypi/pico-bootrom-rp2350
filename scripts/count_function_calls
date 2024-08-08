@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+# Scan all function calls in a disassembly file (bl or jal) and print out
+# their frequencies, highest-first. (Useful for hunting for candidates for
+# common-arg sibling call optimisations)
+
+import sys
+import re
+
+if len(sys.argv) != 2:
+	sys.exit("Usage: count_function_calls (x.dis)")
+
+counts = dict()
+dis = open(sys.argv[1]).read()
+for m in re.findall(r"\b(?:bl|jal)\s+([0-9a-f]+)\s+<([^>]+)>", dis):
+	name = "{:>4} {}".format(*m)
+	if name not in counts:
+		counts[name] = 0
+	counts[name] += 1
+
+for count, name in reversed(sorted(list((v, k) for k, v in counts.items()))):
+	print("{:<3} {}".format(count, name))

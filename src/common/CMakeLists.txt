@@ -1,0 +1,2 @@
+add_library(bootrom_shared_apis INTERFACE)
+target_include_directories(bootrom_shared_apis INTERFACE ${CMAKE_CURRENT_LIST_DIR})

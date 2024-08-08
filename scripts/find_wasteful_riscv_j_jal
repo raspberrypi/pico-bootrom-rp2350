@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+
+# It's easy to get a 32-bit j/jal when a 16-bit one would have sufficed, due
+# to some toolchain limitations. Scan for such instructions, so we can
+# manually fix them up whenever we really need to scrape a few bytes.
+
+import re
+import sys
+
+if len(sys.argv) != 2:
+	sys.exit("Usage: find_wasteful_riscv_j_jal <bootrom.dis>")
+
+count = 0
+last_label = ""
+for l in open(sys.argv[1]).readlines():
+	if l.endswith(">:\n"):
+		last_label = l.strip()
+	# e.g.     7264:	f25ff06f          	j	7188 <vexecute_undefined>
+	m = re.match(r"^\s*([0-9a-f]+):\s+([0-9a-f]+)\s+(?:j|jal)\s+([0-9a-f]+)", l)
+	if not m:
+		continue
+	pc = int(m.group(1), 16)
+	size_bytes = len(m.group(2)) // 2
+	target = int(m.group(3), 16)
+	if size_bytes == 4 and target >= pc - 2048 and target <= pc + 2046:
+		print(last_label)
+		print(l.rstrip())
+		count += 1
+
+print("Potential to save {} bytes".format(count * 2))

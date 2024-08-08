@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+
+# Scan a .bin for SG bit patterns, and make sure they all have a matching
+# symbol starting with sg_ in the corresponding ELF file (avoid accidental
+# SGs)
+
+import sys
+import subprocess
+import re
+import struct
+
+args = sys.argv[1:]
+if len(args) != 3:
+	sys.exit("Usage: check_sg_symbols (bin) (elf) (objdump executable)")
+
+bindata = open(args[0], "rb").read()
+
+objdump_stdout = subprocess.check_output([args[2], "-t", args[1]]).decode("utf-8")
+
+# Example objdump -t line:
+# 00007f38 g     F .secure_gateways	0000003a s_from_ns_arm8_api_flash_runtime_to_storage_addr
+known_sg_addrs = set()
+for l in objdump_stdout.splitlines():
+	m = re.match(r"([0-9a-f]{8}).*\b[0-9a-f]{8}\s*(\w+)", l)
+	if not m:
+		continue
+	if m.group(2).startswith("sg_"):
+		known_sg_addrs.add(int(m.group(1), 16))
+
+sg_count = 0
+for i in range(0, len(bindata) - 2, 2):
+	word = struct.unpack("<l", bindata[i:i + 4])[0] & 0xffffffff
+	if word == 0xe97fe97f:
+		if i not in known_sg_addrs:
+			sys.exit("SG bit pattern at {:04x} did not match any known SG symbols".format(i))
+		sg_count += 1
+
+print("Found {} SG instructions, none with missing symbols".format(sg_count))

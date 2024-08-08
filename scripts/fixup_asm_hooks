@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+import argparse, sys
+
+parser = argparse.ArgumentParser(description="Replace 8 bit asm_hook offsets in ELF")
+
+parser.add_argument("input", help="Input ELF")
+parser.add_argument("symbols", help="Input symbol file")
+parser.add_argument("output", help="Output ELF")
+parser.add_argument("asm_hooks", help="asm_hook list", nargs="*")
+
+args = parser.parse_args()
+
+fin = open(args.input, mode="rb")
+# Reading file data with read() method
+contents = fin.read()
+fin.close()
+
+symbol_addresses = {}
+fin = open(args.symbols, "r")
+for line in fin:
+    values = line.split()
+    if len(values) > 2:
+        symbol_addresses[values[2]] = int(values[0], 16)
+fin.close()
+
+varmulet_nsboot_asm_hooks = symbol_addresses["varmulet_nsboot_asm_hooks"]
+varmulet_preboot_asm_hooks = symbol_addresses["varmulet_preboot_asm_hooks"]
+first_hook_addr = symbol_addresses["first_hook_addr"]
+hooks_size = varmulet_preboot_asm_hooks - varmulet_nsboot_asm_hooks
+if hooks_size < 0:
+    raise SystemExit("asm_hooks_in_wrong_order")
+
+found = 0
+for i in range(0,len(contents) - hooks_size * 2,2):
+    if contents[i] == 0 and contents[i+1] == 1 and contents[i+2] == 2 and contents[i+3] == 3 and contents[hooks_size + i] == 0 and contents[hooks_size + i + 1] == 1 and contents[hooks_size + i + 2] == 2 and contents[hooks_size + i + 3] == 3:
+        # print("Found at {}".format(hex(i)))
+        found = found + 1
+        offsets = bytearray()
+        for j in range(0,hooks_size * 2):
+            hook_name = args.asm_hooks[contents[i+j]]
+            # print("  want {}".format(hook_name))
+            addr = symbol_addresses[hook_name]
+            delta = addr - first_hook_addr
+            if delta & 1:
+                raise SystemExit("{} is mis-aligned ".format(hook_name))
+            # print("    = {} or {}".format(hex(addr), hex(delta >> 1)))
+            offsets = offsets + (delta >> 1).to_bytes(1, 'little')
+        contents = contents[:i] + offsets + contents[i+32:]
+
+if found == 0:
+    raise SystemExit("didn't find asm_hooks")
+elif found > 1:
+    raise SystemExit("found something else like asm hooks")
+fout = open(args.output, mode="wb")
+fout.write(contents)
+fout.close()
+

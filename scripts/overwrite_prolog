@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+import argparse, sys
+
+parser = argparse.ArgumentParser(description="Convert fake RCP placeholders into MOVW for RCP constants")
+
+parser.add_argument("input", help="Input ELF")
+parser.add_argument("symbols", help="Input symbol file")
+parser.add_argument("output", help="Output ELF")
+
+args = parser.parse_args()
+
+fin = open(args.input, mode="rb")
+# Reading file data with read() method
+contents = fin.read()
+fin.close()
+
+# sonly_varm_make_hx_bool_impl:
+# fe15 c736 	rcp_canary_get	ip, 0x56 (86), nodelay
+# b50c      	push	{r2, r3, lr}
+# f04f 121e 	mov.w	r2, #1966110	; 0x1e001e
+# 4082      	lsls	r2, r0
+# 4308      	orrs	r0, r1
+# 0843      	lsrs	r3, r0, #1
+# f04f 10e1 	mov.w	r0, #14745825	; 0xe100e1
+# 00c9      	lsls	r1, r1, #3
+# 1a80      	subs	r0, r0, r2
+# 4088      	lsls	r0, r1
+# ---- these 6 hwords go over the beginning of core0_boot_path_prolog
+# 4058      	eors	r0, r3
+# ee20 0710 	rcp_bvalid r0, delay
+# fe05 c736 	rcp_canary_check	ip, 0x56 (86), nodelay
+# bd0c      	pop	{r2, r3, pc}
+
+matches = 0
+
+make_hx_bool_impl_pos = 0
+for i in range(0,len(contents)-32,2):
+    if contents[i] == 0x15 and contents[i+1] == 0xfe and contents[i+2] == 0x36 and contents[i+3] == 0xc7:
+        make_hx_bool_impl_pos = i
+        # print("{} reg {} = {}".format(hex(i), reg, type))
+        contents = contents[:i+26] + 0xee204058.to_bytes( 4, 'little') + 0xfe050710.to_bytes(4, 'little') + 0xbd0cc736.to_bytes(4, 'little') + contents[i+38:]
+        matches += 1
+
+if matches == 0:
+    raise SystemExit("did not match sonly_varm_make_hx2_bool_impl")
+
+if matches > 1:
+    raise SystemExit("matched multiple sonly_varm_make_hx2_bool_impl")
+
+fin = open(args.symbols, "r")
+
+prolog_p2_addr = 0
+make_hx_bool_impl_addr = 0
+for line in fin:
+    values = line.split()
+    if len(values) > 2:
+        if values[2] == "s_varm_crit_core0_boot_path_entry_p2":
+            prolog_p2_addr = int(values[0], 16)
+        if values[2] == "sonly_varm_make_hx_bool_impl":
+            make_hx_bool_impl_addr = int(values[0], 16)
+
+fin.close()
+if prolog_p2_addr == 0 or make_hx_bool_impl_addr == 0:
+    raise SystemExit("Didn't find s_varm_crit_core0_boot_path_entry_p2 or sonly_varm_make_hx_bool_impl")
+
+# move file location relative to known symbol
+prolog_p2_pos = prolog_p2_addr + make_hx_bool_impl_pos - make_hx_bool_impl_addr
+if contents[prolog_p2_pos-1] != 0xb0 or contents[prolog_p2_pos-2] < 0x80:
+    raise SystemExit("Expected 'sub sp, #' instruction before s_varm_crit_core0_boot_path_entry_p2")
+
+fout = open(args.output, mode="wb")
+fout.write(contents)
+fout.close()
+
