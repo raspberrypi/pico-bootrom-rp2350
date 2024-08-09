@@ -97,7 +97,7 @@ brew install flock
     - Other than glue code, the only RISC-V code is really for RISC-V only APIs/setup, and stuff that needs to be optimized for speed.
     - Unused ARM hardware hint instructions (and/or RCP instructions) are used to make code behave differently under real ARM or emulation.
     - ARM only code is compiled for ARMv8-M Mainline (m33).
-    - Emulatable code is compiled for ARMv8-M Baseline (m23), though emulation of UDIV and SDIV is not included in the bootrom, since they are unused by emulated code. The actual instructions included are (over Arm6m0-plus)
+    - Emulatable code is compiled for ARMv8-M Baseline (m23), though emulation of UDIV and SDIV is not included in the bootrom, since they are unused by emulated code. The actual instructions included are (over ARM6M0-plus)
         1. b.w, cbz, cbnz, movw, movt from ARMv8-M Baseline.
         2. RCP instructions (they are NOPs).
         3. Special cases of mov.w. This is a ARMv8-M Mainline instruction, but we want efficient loads of constants 0xmm00mm00, 0x00nn00nn and 0xpppppppp which are used by the RCP
