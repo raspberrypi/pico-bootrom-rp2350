@@ -4,7 +4,7 @@ This is the A2 version of the RP2350 bootrom.
 
 The source is provided for reference purposes. Whilst you can build a matching binary if you use the exact right compilers, it may be simpler just to use the ELFs with debug info provided as part of the release artifacts. 
 
-It is highly recommended that you read the "Bootrom Concepts" section in the [RP2350 Datasheet](https://rptl.io/rp2040-datasheet) as a background, or indeed the whole Bootrom chapter!
+It is highly recommended that you read the "Bootrom Concepts" section in the [RP2350 Datasheet](https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf) as a background, or indeed the whole Bootrom chapter!
 
 # Building the bootrom
 
@@ -69,7 +69,7 @@ Not all the fancy instructions supported by Hazard3 will be in the compilers in 
 
 The following compiler is known to be correct: `corev-openhw-gcc-ubuntu2204-20240114`. Others may or may not; because space is very tight, slight compiler variations can cause code not to fit.
 
-Alernatively tou can build a compatible one into `/opt/riscv` like this:
+Alernatively you can build a compatible one into `/opt/riscv` like this:
 
 ```bash
 sudo apt install -y autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev
