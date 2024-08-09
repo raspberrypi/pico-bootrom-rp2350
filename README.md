@@ -12,7 +12,7 @@ The bootrom breaks into four flat images, coming from three separate link steps:
 
 1. First is the main Armv8-M Mainline (M33) boot image that holds the majority of the boot code and API functions.
 2. Next is the NS boot; an Armv8-M Baseline (M23) image which is run as a Non Secure application on the Arm processors or via emulation on the RISC-V processors. This binary contains the USB and UART bootloaders
-3. Next is the main RISC-V boot image. This binary contains an emulator for Arvm8-M Baseline, and other RISC-V only code.
+3. Next is the main RISC-V boot image. This binary contains an emulator for ARMv8-M Baseline, and other RISC-V only code.
 4. Finally, the Secure Gateway image, which is linked as part of the v8-M boot image
 
 For more information on the separate bootrom parts see the Bootrom Details section below.
