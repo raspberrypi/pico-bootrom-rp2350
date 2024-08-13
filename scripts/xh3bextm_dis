@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+import argparse, re
+
+parser = argparse.ArgumentParser(description="Disassemble Xh3bextm bitmanip instructions in DIS file")
+
+parser.add_argument("input", help="Input DIS")
+parser.add_argument("output", help="Output DIS")
+
+args = parser.parse_args()
+
+fin = open(args.input, mode="r")
+contents = fin.read()
+fin.close()
+
+abi_regname = [
+	"zero", "ra", "sp",  "gp",
+	"tp",   "t0", "t1",  "t2",
+	"s0",   "s1", "a0",  "a1",
+	"a2",   "a3", "a4",  "a5",
+	"a6",   "a7", "s2",  "s3",
+	"s4",   "s5", "s6",  "s7",
+	"s8",   "s9", "s10", "s11",
+	"t3",   "t4", "t5",  "t6"
+]
+
+def xh3bm_dis(m):
+	opcode = int(m.group(1), 16)
+	if (opcode & 0xe100307f) != 0x0000000b:
+		return m.group(0)
+	elif (opcode & 0x00004000):
+		return "h3.bextmi {rd}, {rs1}, {shamt}, {size}".format(
+			rd = abi_regname[(opcode >> 7) & 0x1f],
+			rs1 = abi_regname[(opcode >> 15) & 0x1f],
+			shamt = (opcode >> 20) & 0x1f,
+			size = ((opcode >> 26) & 0x7) + 1
+		)
+	else:
+		return "h3.bextm {rd}, {rs1}, {rs2}, {size}".format(
+			rd = abi_regname[(opcode >> 7) & 0x1f],
+			rs1 = abi_regname[(opcode >> 15) & 0x1f],
+			rs2 = abi_regname[(opcode >> 20) & 0x1f],
+			size = ((opcode >> 26) & 0x7) + 1
+		)
+
+contents = re.sub(r"\.insn\t4, 0x([0-9a-f]+)", xh3bm_dis, contents)
+
+fout = open(args.output, mode="w")
+fout.write(contents)
+fout.close()

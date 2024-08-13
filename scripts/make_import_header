@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+import argparse, sys
+
+parser = argparse.ArgumentParser(description="Make Linker Script Import for symbols")
+
+parser.add_argument("input", help="Input symbols (nm output)")
+parser.add_argument("output", help="Output .h file suitable for include")
+parser.add_argument("prefix", help="Prefix added to names names of exported symbols (pass NO_PREFIX for none)")
+parser.add_argument("symbols", help="symbol name(s) required", nargs="*")
+args = parser.parse_args()
+
+# This is clearly the wrong way to do it but I don't want to fight argparse
+# misparsing mixtures of keyword and optional positional args (also CMake
+# likes to strip empty quote pairs)
+prefix = "" if args.prefix == "NO_PREFIX" else args.prefix
+
+infile = open(args.input, "r")
+
+symbols_and_types = {}
+for symbol in args.symbols:
+    parts = symbol.split("/")
+    symbols_and_types[parts[0]] = "" if len(parts) == 1 else parts[1]
+
+with open(args.output, 'w') as f:
+    print("#pragma once", file=f)
+    for line in infile:
+        values = line.split()
+        if len(values) > 2 and str(values[2]) in symbols_and_types.keys():
+            addr = int(values[0], 16)
+            if not "d" in symbols_and_types[values[2]]:
+                addr += 1 # thumb
+            # we may want to make this optional, but for now we are just doing functions so need thumb bit
+            print("#define {}{}_addr 0x{:X}".format(prefix, values[2], addr), file=f)
+            symbols_and_types.pop(str(values[2]))
+
+not_found_symbols = dict(filter(lambda item: not "o" in item[1], symbols_and_types.items()))
+
+if len(not_found_symbols.keys()) > 0:
+    print("The following symbols were not found:", ', '.join(not_found_symbols.keys()))
+    sys.exit(1)
+
+infile.close()

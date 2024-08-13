@@ -1,0 +1,9 @@
+[submodule "pico-sdk"]
+	path = lib/pico-sdk
+	url = ../pico-sdk.git
+[submodule "armulet"]
+	path = lib/armulet
+	url =  ../armulet.git
+[submodule "sweet-b"]
+	path = lib/sweet-b
+	url = ../sweet-b.git

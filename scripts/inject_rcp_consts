@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+import argparse, sys
+
+parser = argparse.ArgumentParser(description="Convert fake RCP placeholders into MOVW for RCP constants")
+
+parser.add_argument("input", help="Input ELF")
+parser.add_argument("output", help="Output ELF")
+
+args = parser.parse_args()
+
+fin = open(args.input, mode="rb")
+# Reading file data with read() method
+contents = fin.read()
+fin.close()
+
+for i in range(0,len(contents)-4,2):
+    if contents[i] == 0xf0 and contents[i+1] == 0xee and (contents[i+2] >> 4) == 1 and (contents[i+3] & 15) == 7:
+        type = contents[i+2] & 0xf
+        reg = contents[i+3] >> 4
+        # print("{} reg {} = {}".format(hex(i), reg, type))
+        word0 = 0
+        word1 = 0
+        if type == 0:
+            word0 = 0xf04f
+            word1 = 0x20a5 + (reg << 8)
+        elif type == 1:
+            word0 = 0xf04f
+            word1 = 0x10c3 + (reg << 8)
+        elif type == 2:
+            word0 = 0xf04f
+            word1 = 0x2096 + (reg << 8)
+        elif type == 3:
+            word0 = 0xf04f
+            word1 = 0x10e1 + (reg << 8)
+        elif type == 4:
+            word0 = 0xf04f
+            word1 = 0x101e + (reg << 8)
+        elif type == 5:
+            word0 = 0xf04f
+            word1 = 0x1013 + (reg << 8)
+        elif type == 6:
+            word0 = 0xf04f
+            word1 = 0x10d0 + (reg << 8)
+        elif type == 7:
+            word0 = 0xf04f
+            word1 = 0x1054 + (reg << 8)
+        elif type == 8:
+            word0 = 0xf04f
+            word1 = 0x1097 + (reg << 8)
+        elif type == 9:
+            word0 = 0xf04f
+            word1 = 0x208a + (reg << 8)
+        elif type == 10:
+            word0 = 0xf04f
+            word1 = 0x202f + (reg << 8)
+        elif type == 11:
+            word0 = 0xf04f
+            word1 = 0x30c3 + (reg << 8)
+        else:
+            raise SystemExit("unknown RCP constant {}".format(type))
+
+        contents = contents[:i] + word0.to_bytes( 2, 'little') + word1.to_bytes(2, 'little') + contents[i+4:]
+
+fout = open(args.output, mode="wb")
+fout.write(contents)
+fout.close()
+

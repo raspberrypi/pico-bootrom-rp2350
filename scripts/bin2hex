@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+
+help_str = """bin2hex: Convert flat binary files to Verilog-style hex files.
+
+Output is little-endian, i.e. lower-addressed bytes are less significant in
+the output words (further to the right). The word size can be specified, but
+must be a multiple of 8 bits.
+
+Start and end addresses can be specified, and the input will be padded if the
+end address is past the end of the file. The default is to process the entire
+file into hex. Address 0 is assumed to be the start of the file.
+
+If multiple output files are specified, the output will be striped across them
+word-for-word. Suitable for initialising striped SRAM like on RP2040.
+"""
+
+import sys
+import re
+import argparse
+
+def bin2hex(wordsize, startaddr, endaddr, infile, outfiles):
+    if wordsize <= 0 or wordsize % 8 != 0:
+        sys.exit("Width must be a multiple of 8 (got {})".format(wordsize))
+    bytes_per_word = wordsize // 8
+
+    binimg = open(infile, 'rb').read()
+    if endaddr < 0:
+        endaddr = len(binimg)
+
+    if startaddr > endaddr:
+        sys.exit("Start address must not be greater than end address.")
+    if endaddr > len(binimg):
+        binimg = binimg + bytes(endaddr - len(binimg))
+
+    # Output is striped across multiple output files, with the first word
+    # going to the first file in the file list.
+    ofiles = [open(f,'w') for f in outfiles]
+    ofile_idx = 0
+
+    for chunk in range(startaddr, endaddr, bytes_per_word):
+
+        word = ''
+        for i in range(bytes_per_word):
+            word = ("%02X" % (binimg[chunk + i] if chunk + i < len(binimg) else 0)) + word
+        
+        # Write to the output file, then rotate to next output file
+        ofiles[ofile_idx].write("%s\n" % word)
+        ofile_idx = (ofile_idx + 1) % len(outfiles)
+
+    for o in ofiles:
+        o.close()
+
+# Allow hex, binary, decimal numbers etc on cmdline
+def anyint(x):
+    try:
+        return int(x, 0)
+    except:
+        raise ValueError()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(epilog=help_str, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("-width", default=32, type=anyint,
+        help="Data per output line. Default is 32 bits.")
+    parser.add_argument("-start", type=anyint, default=0,
+        help="Address to start at. Default is 0, i.e. start of bin file.")
+    parser.add_argument("-end", type=anyint, default=-1,
+        help="Address to end at. Default is -1, meaning process the whole file.")
+    parser.add_argument("infile", help="input.bin")
+    parser.add_argument("outfile", nargs='+',
+        help="output hex files, can optionally stripe across multiple files")
+    args = parser.parse_args()
+    bin2hex(args.width, args.start, args.end, args.infile, args.outfile)

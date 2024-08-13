@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+
+import random
+import re
+import sys
+
+MIN_TAG = 64
+MAX_TAG = 191
+
+FIXED_VALUES = {
+	"CTAG_S_VARM_MAKE_HX2_BOOL_IMPL": 0x56
+}
+
+order = [i for i in range(MIN_TAG, MAX_TAG + 1) if i not in FIXED_VALUES.values()]
+random.shuffle(order)
+iter_tags = iter(order)
+
+if len(sys.argv) != 2:
+	sys.exit("Usage: scramble_canary_tags header_name.h")
+
+text_in = open(sys.argv[1]).read()
+ofile = open(sys.argv[1], "w")
+for l in text_in.splitlines():
+	m = re.match(r"^#define\s+(CTAG_\w+)\s+\w+$", l)
+	if m:
+		if m.group(1) in FIXED_VALUES:
+			tag = FIXED_VALUES[m.group(1)]
+		else:
+			tag = next(iter_tags, None)
+			if tag is None:
+				sys.exit("Ran out of tags to assign")
+		l = "#define {:<60} 0x{:02x}".format(m.group(1), tag)
+	ofile.write(l + "\n")
+

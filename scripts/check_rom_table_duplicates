@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+
+# Little script to find duplicate rom table codes
+
+import re
+import sys
+
+if len(sys.argv) != 2:
+	sys.exit("Usage: check_rom_table_duplicates (path/to/bootrom_constants.h)")
+
+with open(sys.argv[1], "r") as f:
+	txt = f.read()
+	codes = re.findall("ROM_TABLE_CODE\(['\"](\w)['\"], ['\"](\w)['\"]\)", txt)
+
+parsed_codes = set()
+for code in codes:
+	if code not in parsed_codes:
+		parsed_codes.add(code)
+	else:
+		print(code, "Is a duplicate ROM table code!!")
+
+if len(parsed_codes) == len(codes):
+	print("No duplicate ROM table codes")

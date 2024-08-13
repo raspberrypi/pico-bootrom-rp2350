@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+
+# Scan the arm8 disassembly for function returns (bx lr or pop {..., pc}) and
+# assert that there is at least one rcp_count_check or rcp_canary_check in
+# between the function entry and the return. This is necessarily quite a
+# loose check because of myriad forms of epilogue, but it catches things that
+# the compiler has suddenly decided to outline based on some internal cost
+# heuristic reaching a tipping point.
+
+import re
+import sys
+
+if len(sys.argv) != 2:
+	sys.exit("Usage: check_function_returns bootrom.dis")
+
+# !!!
+# When you add an exception to this list, ADD A COMMENT WITH A REASON
+# !!!
+KNOWN_EXCEPTIONS = [
+
+	# This is the final bx lr in the ROM table lookup function, used as an
+	# empty function when we need to stub a function pointer. The actual
+	# function body ends with an rcp_check_step and is handwritten:
+	"varm_noop",
+
+	# This is actually s_varm_riscv_hx_get_boot_flag_impl, which has been
+	# punted into .rodata (XN and NS) because it's only executed on RISC-V
+	"__start_of_secure_xn",
+
+	# This is 3-instruction function that spins until r0 wraps 0. As it
+	# doesn't pop the stack it's not easy to use as part of a chain.
+	# Decided it is uninteresting (maybe this will bite us)
+	"s_native_busy_wait_at_least_cycles",
+
+	# there are no instructions other than a push in the prolog and a pop in
+	# the epilogue, and our canaries don't help against protecting regular
+	# prologue pushes/epilogue pops in other places.
+	"s_varm_api_reboot",
+]
+
+seen_known_exceptions = set()
+seen_check = False
+entry_line = ""
+function_name = ""
+bad_exit_count = 0
+for l in open(sys.argv[1]).readlines():
+	l = l.strip()
+	m = re.match(r"^[0-9a-f]+\s+<([^<]+)>:$", l)
+	if m:
+		entry_line = l
+		function_name = m.group(1)
+		seen_check = False
+	elif "rcp_count_check" in l or "rcp_canary_check" in l:
+		seen_check = True
+	elif l.endswith("bx\tlr") or l.endswith("pc}"):
+		if not seen_check and function_name in KNOWN_EXCEPTIONS:
+			#print("Ignoring known unprotected exit: " + function_name)
+			seen_known_exceptions.add(function_name)
+		elif not seen_check:
+			print("Unprotected exit from: " + entry_line)
+			print("          ^^^ exit at: " + " " * (8 - l.index(":")) + l)
+			bad_exit_count += 1
+			# In case of multiple exits, they ought to all be protected
+			seen_check = False
+
+for e in KNOWN_EXCEPTIONS:
+	if e not in seen_known_exceptions:
+		print("Note: function " + e + " was marked as a known unprotected exit, but no such exit was found")
+
+if bad_exit_count > 0:
+	sys.exit("Found {} unprotected exits".format(bad_exit_count))
+else:
+	print("No unprotected exits found")

@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+
+# Check for rcp_canary_get with no rcp_canary_check of the same tag.
+# Likewise check for rcp_count_set with no rcp_count_check of the same count.
+# No data/control flow analysis, just a quick lint.
+
+import re
+import sys
+
+seen_canary_get   = {}
+seen_canary_check = {}
+seen_count_set    = {}
+seen_count_check  = {}
+
+if len(sys.argv) != 2:
+	sys.exit("Usage: check_useless_canaries bootrom.dis")
+
+for l in open(sys.argv[1]).readlines():
+	l = l.rstrip()
+	m = re.search(r"rcp_count_(set|check)\s+0x([0-9a-f]+)", l)
+	if m:
+		target_dict = seen_count_set if m.group(1) == "set" else seen_count_check
+		tag = int(m.group(2), 16)
+		if tag not in target_dict:
+			target_dict[tag] = l
+	m = re.search(r"rcp_canary_(get|check)\s+\w+,\s+0x([0-9a-f]+)", l)
+	if m:
+		target_dict = seen_canary_get if m.group(1) == "get" else seen_canary_check
+		tag = int(m.group(2), 16)
+		if tag not in target_dict:
+			target_dict[tag] = l
+
+mismatches = 0
+
+for k in sorted(list(seen_count_set.keys())):
+	if k not in seen_count_check:
+		print("No check found for rcp_count_set of 0x{:02x}".format(k))
+		print("  ^^^ first seen on line: " + seen_count_set[k])
+		mismatches += 1
+
+for k in sorted(list(seen_canary_get.keys())):
+	if k not in seen_canary_check:
+		print("No check found for rcp_canary_set of 0x{:02x}".format(k))
+		print("  ^^^ first seen on line: " + seen_canary_get[k])
+		mismatches += 1
+
+# For canaries we can also do the converse check, although it's less useful
+
+for k in sorted(list(seen_canary_check.keys())):
+	if k not in seen_canary_get:
+		print("No get found for rcp_canary_check of 0x{:02x}".format(k))
+		print("  ^^^ first seen on line: " + seen_canary_check[k])
+		mismatches += 1
+
+
+if mismatches:
+	sys.exit("Found {} RCP tags with mismatched check/set".format(mismatches))
+else:
+	print("No useless canaries found")
