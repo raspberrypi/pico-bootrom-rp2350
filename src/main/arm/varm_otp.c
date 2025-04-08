@@ -390,7 +390,34 @@ int __used s_varm_api_hx_otp_access(aligned4_uint8_t *buf, uint32_t buf_len, otp
                 // note: we expect user to verify the data was written correctly
             } else {
                 if (is_ecc) {
+                    // current_val holds the raw value
                     *(uint16_t *)buf = inline_s_otp_read_ecc(row);
+                    // when reading using bootrom, validate the ECC read corresponds
+                    // to the raw value read above.  Otherwise, the data is corrupted.
+                    uint32_t re_encoded = s_otp_calculate_ecc(*(uint16_t *)buf);
+                    uint32_t current_wo_brp = (current_value & 0x3FFFFFu);
+                    if ((current_val & 0xC00000u) == 0x0) &&
+                        (__builtin_popcount(current_wo_brp ^ re_encoded) >= 1)) {
+                        // If neither BRP bit is set, then if there is more than
+                        // a single-bit error, the data from the ECC read is corrupted.
+                        rc = BOOTROM_ERROR_INVALID_DATA;
+                        goto abort;
+                    } else if ((current_val & 0xC00000u) == 0xC00000u) &&
+                        (__builtin_popcount(((~current_wo_brp) & 0x3FFFFFu) ^ re_encoded) >= 1)) {
+                        // If both BRP bits are set, then if there is more than
+                        // a single-bit error, the data from the ECC read is corrupted.
+                        rc = BOOTROM_ERROR_INVALID_DATA;
+                        goto abort;
+                    } else {
+                        // When only one BRP bit is set, allow up to a single-bit error
+                        // vs. either inverted or original current raw value (w/o BRP).
+                        if ((__builtin_popcount(current_wo_brp ^ re_encoded) >= 1) &&
+                            (__builtin_popcount(((~current_wo_brp) & 0x3FFFFFu)^ re_encoded) >= 1)) {
+                            rc = BOOTROM_ERROR_INVALID_DATA;
+                            goto abort;
+                        }
+                    }
+                    // if did not abort from above checks, then value already stored in buf.
                 } else {
                     *(uint32_t *)buf = current_val;
                 }
